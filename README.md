@@ -43,7 +43,14 @@ Requires Node.js 20 or newer.
    TYPESAFE_BASE_URL=your-endpoint
    TYPESAFE_API_KEY=your-api-key
    TYPESAFE_DEFAULT_MODEL=microsoft-decision-1
+   MIN_LABEL_CONFIDENCE=75
    ```
+
+   `MIN_LABEL_CONFIDENCE` is the minimum confidence percentage (0-100) required
+   to publish a label, defaulting to 75 when unset. Selected assignments below
+   this threshold are skipped without creating or applying their labels on
+   GitHub, including assignments whose labels were manually changed. The
+   publish result reports published and skipped counts.
 
 4. Start the frontend and API:
 
@@ -73,6 +80,7 @@ it.
    - `TYPESAFE_BASE_URL`
    - `TYPESAFE_API_KEY`
    - `TYPESAFE_DEFAULT_MODEL`
+   - `MIN_LABEL_CONFIDENCE` (optional; defaults to `75`)
 4. Use `npm run build` as the build command and `npm start` as the startup
    command.
 

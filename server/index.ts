@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { classifyIssues } from "./classifier.js";
+import { getConfig } from "./config.js";
 import {
   fetchAllIssues,
   parseRepositoryUrl,
@@ -26,6 +27,7 @@ const publishSchema = z.object({
       z.object({
         issueNumber: z.number().int().positive(),
         label: labelSchema,
+        confidence: z.number().min(0).max(1),
       }),
     )
     .min(1),
@@ -67,8 +69,13 @@ app.post("/api/publish", async (request, response) => {
   try {
     const input = publishSchema.parse(request.body);
     const repository = parseRepositoryUrl(input.repositoryUrl);
-    await publishIssueLabels(repository, input.assignments, input.githubToken);
-    response.json({ published: input.assignments.length });
+    const published = await publishIssueLabels(
+      repository,
+      input.assignments,
+      input.githubToken,
+      getConfig().MIN_LABEL_CONFIDENCE,
+    );
+    response.json({ published, skipped: input.assignments.length - published });
   } catch (error) {
     const message =
       error instanceof z.ZodError

@@ -132,14 +132,23 @@ function App() {
     try {
       const assignments = result.classifications
         .filter((item) => selectedIssues.has(item.issueNumber))
-        .map((item) => ({ issueNumber: item.issueNumber, label: item.label }));
+        .map((item) => ({
+          issueNumber: item.issueNumber,
+          label: item.label,
+          confidence: item.confidence,
+        }));
       const response = await fetch("/api/publish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ repositoryUrl, githubToken, assignments }),
       });
-      const data = await readApiResponse<{ published: number }>(response);
-      setNotice(`Published ${data.published} label assignments to ${result.repository}.`);
+      const data = await readApiResponse<{ published: number; skipped: number }>(response);
+      setNotice(
+        `Published ${data.published} label assignments to ${result.repository}.` +
+          (data.skipped
+            ? ` Skipped ${data.skipped} assignments below the minimum confidence.`
+            : ""),
+      );
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Publishing failed.");
     } finally {

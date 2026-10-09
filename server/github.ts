@@ -158,16 +158,22 @@ async function ensureLabelsExist(
 
 export async function publishIssueLabels(
   repository: Repository,
-  assignments: Array<{ issueNumber: number; label: string }>,
+  assignments: Array<{ issueNumber: number; label: string; confidence: number }>,
   token: string,
-): Promise<void> {
+  minimumConfidence: number,
+): Promise<number> {
+  const eligibleAssignments = assignments.filter(
+    (assignment) => assignment.confidence >= minimumConfidence / 100,
+  );
+  if (!eligibleAssignments.length) return 0;
+
   await ensureLabelsExist(
     repository,
-    assignments.map((assignment) => assignment.label),
+    eligibleAssignments.map((assignment) => assignment.label),
     token,
   );
 
-  for (const assignment of assignments) {
+  for (const assignment of eligibleAssignments) {
     await githubRequest(
       `/repos/${repository.owner}/${repository.name}/issues/${assignment.issueNumber}/labels`,
       {
@@ -178,4 +184,6 @@ export async function publishIssueLabels(
       token,
     );
   }
+
+  return eligibleAssignments.length;
 }

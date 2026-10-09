@@ -6,6 +6,7 @@ const environmentSchema = z.object({
   TYPESAFE_API_KEY: z.string().min(1),
   TYPESAFE_DEFAULT_MODEL: z.string().min(1).default("microsoft-decision-1"),
   PORT: z.coerce.number().int().positive().default(3000),
+  MIN_LABEL_CONFIDENCE: z.coerce.number().min(0).max(100).default(75),
 });
 
 export type AppConfig = z.infer<typeof environmentSchema>;
