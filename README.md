@@ -1,7 +1,7 @@
 # GitHub Issue Classifier
 Demonstration of Microsoft-Decision-1 model to classify GitHub issues
 
-A web application that uses Microsoft Decision-1 (Pi Scorer) to classify every
+A web application that uses Microsoft Decision-1 to classify every
 issue in a GitHub repository. Review the model's decisions and confidence
 scores, adjust individual labels, then optionally publish the selected labels
 back to GitHub.
@@ -16,10 +16,10 @@ deploy to Azure App Service.
 - Starts with GitHub's default `bug`, `documentation`, `enhancement`, `invalid`,
   and `question` labels
 - Lets users add and remove candidate labels
-- Classifies open and closed issues with Pi Scorer's `Choice` decision
+- Classifies open and closed issues with Microsoft-Decision-1's `Choice` decision
 - Displays per-issue confidence and allows a human to change each result
 - Publishes selected labels using a user-provided fine-grained GitHub token
-- Keeps Pi Scorer credentials on the server and never stores GitHub tokens
+- Keeps Microsoft-Decision-1 credentials on the server and never stores GitHub tokens
 
 ## Local development
 
@@ -37,12 +37,12 @@ Requires Node.js 20 or newer.
    cp .env.example .env
    ```
 
-3. Set the Pi Scorer values in `.env`:
+3. Set the Microsoft-Decision-1 values in `.env`:
 
    ```dotenv
-   TYPESAFE_BASE_URL=https://pi-scoring.centralus.inference.ml.azure.com
+   TYPESAFE_BASE_URL=your-endpoint
    TYPESAFE_API_KEY=your-api-key
-   TYPESAFE_DEFAULT_MODEL=pi-scorer
+   TYPESAFE_DEFAULT_MODEL=microsoft-decision-1
    ```
 
 4. Start the frontend and API:
