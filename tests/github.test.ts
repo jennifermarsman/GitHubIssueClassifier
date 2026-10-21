@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { parseRepositoryUrl, publishIssueLabels } from "../server/github.js";
+import { fetchAllIssues, parseRepositoryUrl, publishIssueLabels } from "../server/github.js";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -27,6 +27,110 @@ describe("parseRepositoryUrl", () => {
     expect(() => parseRepositoryUrl("https://github.com/owner")).toThrow(
       "Use a repository URL",
     );
+  });
+});
+
+describe("fetchAllIssues", () => {
+  const repository = { owner: "owner", name: "repository" };
+  const initialUrl =
+    "https://api.github.com/repos/owner/repository/issues" +
+    "?state=all&per_page=100&sort=created&direction=asc";
+  const issue = {
+    number: 1,
+    title: "An issue",
+    body: null,
+    html_url: "https://github.com/owner/repository/issues/1",
+    labels: ["bug", { name: "question" }, {}],
+  };
+
+  it("follows cursor links through short, pull-request-only pages", async () => {
+    const nextUrl =
+      "https://api.github.com/repositories/123/issues" +
+      "?state=all&per_page=100&sort=created&direction=asc&after=Y3Vyc29y%3D";
+    const lastUrl = nextUrl.replace("Y3Vyc29y%3D", "bmV4dA%3D%3D");
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify([issue]), {
+        headers: { Link: `<${nextUrl}>; rel="next", <${lastUrl}>; rel="last"` },
+      }))
+      .mockResolvedValueOnce(new Response(JSON.stringify([{ ...issue, pull_request: {} }]), {
+        headers: { Link: `<${initialUrl}>; rel="prev", <${lastUrl}>; rel="next"` },
+      }))
+      .mockResolvedValueOnce(new Response(JSON.stringify([{ ...issue, number: 3, body: "Details" }]), {
+        headers: { Link: `<${nextUrl}>; rel="prev"` },
+      }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    expect(await fetchAllIssues(repository, "test-token")).toEqual([
+      {
+        number: 1,
+        title: "An issue",
+        body: "",
+        htmlUrl: issue.html_url,
+        currentLabels: ["bug", "question"],
+      },
+      {
+        number: 3,
+        title: "An issue",
+        body: "Details",
+        htmlUrl: issue.html_url,
+        currentLabels: ["bug", "question"],
+      },
+    ]);
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([initialUrl, nextUrl, lastUrl]);
+    const authorization = fetchMock.mock.calls[0][1].headers.Authorization;
+    expect(authorization).toBeTruthy();
+    for (const [, options] of fetchMock.mock.calls) {
+      expect(options.headers.Authorization).toBe(authorization);
+    }
+  });
+
+  it("also follows page-number links returned by GitHub", async () => {
+    const nextUrl = `${initialUrl}&page=2`;
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify([issue]), {
+        headers: { Link: `<${nextUrl}>; rel="next"` },
+      }))
+      .mockResolvedValueOnce(new Response("[]"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    expect(await fetchAllIssues(repository)).toHaveLength(1);
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([initialUrl, nextUrl]);
+  });
+
+  it.each([0, 100])("stops without a next link even with %i results", async (count) => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(Array.from({ length: count }, () => issue))),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    expect(await fetchAllIssues(repository)).toHaveLength(count);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe(initialUrl);
+  });
+
+  it("propagates API errors on subsequent pages", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response("[]", {
+        headers: { Link: `<${initialUrl}&after=cursor>; rel="next"` },
+      }))
+      .mockResolvedValueOnce(new Response("Rate limit exceeded", { status: 403 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchAllIssues(repository)).rejects.toThrow(
+      "GitHub API request failed (403): Rate limit exceeded",
+    );
+  });
+
+  it("rejects pagination links outside the GitHub API", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("[]", {
+      headers: { Link: '<https://example.com/issues?after=cursor>; rel="next"' },
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchAllIssues(repository, "test-token")).rejects.toThrow(
+      "GitHub pagination link must use api.github.com.",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
 
