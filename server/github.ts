@@ -90,13 +90,12 @@ export async function fetchAllIssues(
   token?: string,
 ): Promise<GitHubIssue[]> {
   const issues: GitHubIssue[] = [];
-  let page = 1;
+  let path =
+    `/repos/${repository.owner}/${repository.name}/issues` +
+    "?state=all&per_page=100&sort=created&direction=asc";
 
   while (true) {
-    const path =
-      `/repos/${repository.owner}/${repository.name}/issues` +
-      `?state=all&per_page=100&page=${page}&sort=created&direction=asc`;
-    const { data } = await githubRequest<GitHubIssueResponse[]>(path, {}, token);
+    const { data, response } = await githubRequest<GitHubIssueResponse[]>(path, {}, token);
 
     for (const issue of data) {
       if (issue.pull_request) continue;
@@ -111,8 +110,13 @@ export async function fetchAllIssues(
       });
     }
 
-    if (data.length < 100) break;
-    page += 1;
+    const nextLink = response.headers.get("link")?.match(/<([^>]+)>;\s*rel="next"/)?.[1];
+    if (!nextLink) break;
+    const nextUrl = new URL(nextLink, GITHUB_API);
+    if (nextUrl.origin !== GITHUB_API) {
+      throw new Error("GitHub pagination link must use api.github.com.");
+    }
+    path = nextUrl.pathname + nextUrl.search;
   }
 
   return issues;
