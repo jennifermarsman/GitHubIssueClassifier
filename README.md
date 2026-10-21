@@ -63,7 +63,7 @@ Open `http://localhost:5173`.
 ## GitHub access
 
 Public repositories can be classified without a GitHub token. Private
-repositories and publishing require a fine-grained personal access token:
+repositories and publishing require a fine-grained personal access token, which you can get from https://github.com/settings/personal-access-tokens:
 
 - Repository access: the target repository
 - Repository permission: **Issues — Read and write**
